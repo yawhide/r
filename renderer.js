@@ -4,13 +4,16 @@
 
 const {ipcRenderer} = require('electron')
 
-let $list = document.querySelector('.list')
+
 
 ipcRenderer.on('ticker-info', (event, data) => {
-  console.log(data) // prints "pong"
-  for (let i = 0; i < $list.children.length; i++) {
-    $list.removeChild($list.children[i]);
-  }
+  console.log(data) // prints "pong"f
+  let $list = document.querySelector('.list')
+  let $listInner = document.querySelector('.list > div')
+  $list.removeChild($listInner)
+  $list.appendChild(document.createElement('div'))
+  $listInner = document.querySelector('.list > div')
+
   data.forEach((arg) => {
     let elem = document.createElement('div')
     elem.dataset.ticker = arg.symbol;
@@ -21,7 +24,7 @@ ipcRenderer.on('ticker-info', (event, data) => {
       let elmt = e.target;
       elmt.parentNode.removeChild(elmt);
     }
-    $list.appendChild(elem);
+    $listInner.appendChild(elem);
   })
 })
 

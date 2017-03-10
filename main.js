@@ -59,56 +59,71 @@ app.on('activate', function () {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
-let stocksToCheck = {}
 const creds = require('./config.json')
 const {ipcMain} = require('electron')
+const JsonDB = require('@diam/json-db')
+const fs = require('fs')
+const tickerDbPath = './tickers.json'
+
+console.log(JsonDB)
+
+if (!fs.existsSync(tickerDbPath)) fs.writeFileSync(tickerDbPath, JSON.stringify({}))
+let db = new JsonDB(tickerDbPath)
+let stocksToCheck = db.readSync()
+console.info('tickers to start watching:', stocksToCheck)
 
 ipcMain.on('new-ticker', (event, arg) => {
   console.log('new-ticker', arg)  // prints "ping"
-  stocksToCheck[arg] = true;
+  stocksToCheck[arg] = true
+  updateStocks()
+  db.writeSync(stocksToCheck)
 })
 
 ipcMain.on('remove-ticker', (event, arg) => {
   console.log('remove-ticker', arg)  // prints "ping"
-  delete stocksToCheck[arg.toLowerCase()];
+  delete stocksToCheck[arg.toLowerCase()]
+  db.writeSync(stocksToCheck)
 })
 
 const Robinhood = require('robinhood')(creds, () => {
   console.info('robinhood is ready')
   setInterval(() => {
-    let stc = Object.keys(stocksToCheck);
+    let stc = Object.keys(stocksToCheck)
     console.log('stocksToCheck:', stc)
-    if (!stc.length) return;
-    Robinhood.quote_data(stc, function(err, response, body){
-      if(err){
-          console.error(err);
-      }else{
-          console.log("quote_data");
-          console.log(body);
-          if (!body) return;
-          //event.sender.send('ticker-info', {})
-          // event.sender.send('ticker-info', body)
-          mainWindow.webContents.send('ticker-info', body.results)
-          //{
-          //    results: [
-          //        {
-          //            ask_price: String, // Float number in a String, e.g. '735.7800'
-          //            ask_size: Number, // Integer
-          //            bid_price: String, // Float number in a String, e.g. '731.5000'
-          //            bid_size: Number, // Integer
-          //            last_trade_price: String, // Float number in a String, e.g. '726.3900'
-          //            last_extended_hours_trade_price: String, // Float number in a String, e.g. '735.7500'
-          //            previous_close: String, // Float number in a String, e.g. '743.6200'
-          //            adjusted_previous_close: String, // Float number in a String, e.g. '743.6200'
-          //            previous_close_date: String, // YYYY-MM-DD e.g. '2016-01-06'
-          //            symbol: String, // e.g. 'AAPL'
-          //            trading_halted: Boolean,
-          //            updated_at: String, // YYYY-MM-DDTHH:MM:SS e.g. '2016-01-07T21:00:00Z'
-          //        }
-          //    ]
-          //}
-      }
-    })
+    if (!stc.length) return
+    updateStocks()
   }, 30000)
 
 });
+
+function updateStocks() {
+  let stc = Object.keys(stocksToCheck)
+  Robinhood.quote_data(stc, function(err, response, body){
+    if(err){
+      console.error(err)
+    }else{
+      if (!body) return console.log(body)
+      //event.sender.send('ticker-info', {})
+      // event.sender.send('ticker-info', body)
+      mainWindow.webContents.send('ticker-info', body.results)
+      //{
+      //    results: [
+      //        {
+      //            ask_price: String, // Float number in a String, e.g. '735.7800'
+      //            ask_size: Number, // Integer
+      //            bid_price: String, // Float number in a String, e.g. '731.5000'
+      //            bid_size: Number, // Integer
+      //            last_trade_price: String, // Float number in a String, e.g. '726.3900'
+      //            last_extended_hours_trade_price: String, // Float number in a String, e.g. '735.7500'
+      //            previous_close: String, // Float number in a String, e.g. '743.6200'
+      //            adjusted_previous_close: String, // Float number in a String, e.g. '743.6200'
+      //            previous_close_date: String, // YYYY-MM-DD e.g. '2016-01-06'
+      //            symbol: String, // e.g. 'AAPL'
+      //            trading_halted: Boolean,
+      //            updated_at: String, // YYYY-MM-DDTHH:MM:SS e.g. '2016-01-07T21:00:00Z'
+      //        }
+      //    ]
+      //}
+    }
+  })
+}
