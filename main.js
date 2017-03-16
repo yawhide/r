@@ -119,7 +119,7 @@ const Robinhood = require('robinhood')(creds, () => {
   updateStocks()
   setInterval(() => {
     updateStocks()
-  }, 30000)
+  }, 10000)
 });
 
 function updateStocks() {
@@ -139,7 +139,7 @@ function sendUpdatedStockInfo(body) {
     let dir = stocksToCheck[ticker].direction
     let notifPrice = stocksToCheck[ticker].notifPrice
     let tickerInfo = { symbol: result.symbol, last_trade_price: lastTradePrice, last_extended_hours_trade_price: result.last_extended_hours_trade_price }
-    console.log(lastTradePrice <= notifPrice, lastTradePrice, notifPrice)
+    // console.log(lastTradePrice <= notifPrice, lastTradePrice, notifPrice)
     if (dir) {
       if ((dir === 'up' && lastTradePrice >= notifPrice) ||
         (dir === 'down' && lastTradePrice <= notifPrice)) {
@@ -149,7 +149,7 @@ function sendUpdatedStockInfo(body) {
     }
     info.push(tickerInfo)
   })
-  console.log(info)
+  // console.log(info)
   mainWindow.webContents.send('ticker-info', info)
   //{
       //    body.results: [
