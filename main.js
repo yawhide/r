@@ -65,18 +65,33 @@ const JsonDB = require('@diam/json-db')
 const fs = require('fs')
 const tickerDbPath = './tickers.json'
 
-console.log(JsonDB)
-
 if (!fs.existsSync(tickerDbPath)) fs.writeFileSync(tickerDbPath, JSON.stringify({}))
 let db = new JsonDB(tickerDbPath)
 let stocksToCheck = db.readSync()
 console.info('tickers to start watching:', stocksToCheck)
 
 ipcMain.on('new-ticker', (event, arg) => {
-  console.log('new-ticker', arg)  // prints "ping"
-  stocksToCheck[arg] = true
-  updateStocks()
-  db.writeSync(stocksToCheck)
+  console.log('new-ticker:', arg)  // prints "ping"
+  let ticker = arg.ticker.toLowerCase()
+  let notifPirce = Number(arg.notifPrice)
+  let stc = Object.keys(stocksToCheck)
+  if (!stocksToCheck[ticker]) stc.push(ticker)
+  getPrices(stc, (err, body) => {
+    if (err) return
+    body.results.forEach(result => {
+      console.log(result.symbol, result.last_trade_price)
+      if (result.symbol.toLowerCase() === ticker) {
+        stocksToCheck[ticker] = {}
+        if (notifPirce) {
+          stocksToCheck[ticker].notifPrice = notifPirce
+          stocksToCheck[ticker].direction = Number(result.last_trade_price) > notifPirce ? 'down' : 'up'
+          console.log('tracking:', ticker, stocksToCheck[ticker].direction)
+        }
+      }
+    })
+    db.writeSync(stocksToCheck)
+    sendUpdatedStockInfo(body)
+  })
 })
 
 ipcMain.on('remove-ticker', (event, arg) => {
@@ -85,29 +100,59 @@ ipcMain.on('remove-ticker', (event, arg) => {
   db.writeSync(stocksToCheck)
 })
 
+ipcMain.on('remove-notif', (event, arg) => {
+  stocksToCheck[arg.toLowerCase()] = {}
+  db.writeSync(stocksToCheck)
+})
+
+// ipcMain.on('track', (event, arg) => {
+
+//   getPrices(arg.ticker, (err, body) => {
+//     body.results
+//     mainWindow.webContents.send('ticker-info', { ticker: , price: , })
+//   })
+// })
+
 const Robinhood = require('robinhood')(creds, () => {
   console.info('robinhood is ready')
+  console.log('stocksToCheck:', stocksToCheck)
+  updateStocks()
   setInterval(() => {
-    let stc = Object.keys(stocksToCheck)
-    console.log('stocksToCheck:', stc)
-    if (!stc.length) return
     updateStocks()
   }, 30000)
-
 });
 
 function updateStocks() {
   let stc = Object.keys(stocksToCheck)
-  Robinhood.quote_data(stc, function(err, response, body){
-    if(err){
-      console.error(err)
-    }else{
-      if (!body) return console.log(body)
-      //event.sender.send('ticker-info', {})
-      // event.sender.send('ticker-info', body)
-      mainWindow.webContents.send('ticker-info', body.results)
-      //{
-      //    results: [
+  if (!stc.length) return
+  getPrices(stc, (err, body) => {
+    if (err) return
+    sendUpdatedStockInfo(body)
+  })
+}
+
+function sendUpdatedStockInfo(body) {
+  let info = []
+  body.results.forEach((result) => {
+    let ticker = result.symbol.toLowerCase()
+    let lastTradePrice = Number(result.last_trade_price)
+    let dir = stocksToCheck[ticker].direction
+    let notifPrice = stocksToCheck[ticker].notifPrice
+    let tickerInfo = { symbol: result.symbol, last_trade_price: lastTradePrice, last_extended_hours_trade_price: result.last_extended_hours_trade_price }
+    console.log(lastTradePrice <= notifPrice, lastTradePrice, notifPrice)
+    if (dir) {
+      if ((dir === 'up' && lastTradePrice >= notifPrice) ||
+        (dir === 'down' && lastTradePrice <= notifPrice)) {
+        tickerInfo.notify = true
+        console.log('notifying:', ticker, dir)
+      }
+    }
+    info.push(tickerInfo)
+  })
+  console.log(info)
+  mainWindow.webContents.send('ticker-info', info)
+  //{
+      //    body.results: [
       //        {
       //            ask_price: String, // Float number in a String, e.g. '735.7800'
       //            ask_size: Number, // Integer
@@ -124,6 +169,19 @@ function updateStocks() {
       //        }
       //    ]
       //}
+}
+
+function getPrices(tickers, cb) {
+  if (typeof tickers === 'string') tickers = [tickers]
+  Robinhood.quote_data(tickers, (err, response, body) => {
+    if(err){
+      console.error(`failed to get tickers: ${tickers}.`, err)
+      return cb(err);
     }
+    if (!body) {
+      console.error(`Failed to get tickers: ${tickers}, no body...`)
+      return cb({ message: 'no body'})
+    }
+    cb(null, body)
   })
 }

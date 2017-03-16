@@ -25,6 +25,15 @@ ipcRenderer.on('ticker-info', (event, data) => {
       elmt.parentNode.removeChild(elmt);
     }
     $listInner.appendChild(elem);
+    if (arg.notify) {
+      console.log('about to notify:')
+      let myNotification = new Notification(arg.symbol, {
+        body: `${arg.symbol} reached ${arg.last_trade_price}`
+      })
+      myNotification.onclick = () => {
+        ipcRenderer.send('remove-notif', arg.symbol)
+      }
+    }
   })
 })
 
@@ -38,7 +47,8 @@ try {
 const $form = document.querySelector('form')
 $form.onsubmit = (e) => {
   e.preventDefault()
-  ipcRenderer.send('new-ticker', e.target.children[0].value)
+  ipcRenderer.send('new-ticker', { ticker: e.target.children[0].value, notifPrice: e.target.children[1].value })
   e.target.children[0].value = '';
+  e.target.children[1].value = '';
 }
 
