@@ -73,7 +73,7 @@ console.info('tickers to start watching:', stocksToCheck)
 ipcMain.on('new-ticker', (event, arg) => {
   console.log('new-ticker:', arg)  // prints "ping"
   let ticker = arg.ticker.toLowerCase()
-  let notifPirce = Number(arg.notifPrice)
+  let notifPrice = Number(arg.notifPrice)
   let stc = Object.keys(stocksToCheck)
   if (!stocksToCheck[ticker]) stc.push(ticker)
   getPrices(stc, (err, body) => {
@@ -82,9 +82,9 @@ ipcMain.on('new-ticker', (event, arg) => {
       console.log(result.symbol, result.last_trade_price)
       if (result.symbol.toLowerCase() === ticker) {
         stocksToCheck[ticker] = {}
-        if (notifPirce) {
-          stocksToCheck[ticker].notifPrice = notifPirce
-          stocksToCheck[ticker].direction = Number(result.last_trade_price) > notifPirce ? 'down' : 'up'
+        if (notifPrice) {
+          stocksToCheck[ticker].notifPrice = notifPrice
+          stocksToCheck[ticker].direction = Number(result.last_trade_price) > notifPrice ? 'down' : 'up'
           console.log('tracking:', ticker, stocksToCheck[ticker].direction)
         }
       }
@@ -136,9 +136,16 @@ function sendUpdatedStockInfo(body) {
   body.results.forEach((result) => {
     let ticker = result.symbol.toLowerCase()
     let lastTradePrice = Number(result.last_trade_price)
+    if (!stocksToCheck[ticker]) return;
     let dir = stocksToCheck[ticker].direction
     let notifPrice = stocksToCheck[ticker].notifPrice
-    let tickerInfo = { symbol: result.symbol, last_trade_price: lastTradePrice, last_extended_hours_trade_price: result.last_extended_hours_trade_price }
+    let tickerInfo = {
+      dir,
+      last_extended_hours_trade_price: Number(result.last_extended_hours_trade_price),
+      last_trade_price: Number(lastTradePrice),
+      notifPrice,
+      symbol: result.symbol,
+    }
     // console.log(lastTradePrice <= notifPrice, lastTradePrice, notifPrice)
     if (dir) {
       if ((dir === 'up' && lastTradePrice >= notifPrice) ||

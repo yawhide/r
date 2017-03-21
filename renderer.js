@@ -7,7 +7,7 @@ const {ipcRenderer} = require('electron')
 
 
 ipcRenderer.on('ticker-info', (event, data) => {
-  console.log(data) // prints "pong"f
+  // console.log(data) // prints "pong"f
   let $list = document.querySelector('.list')
   let $listInner = document.querySelector('.list > div')
   $list.removeChild($listInner)
@@ -26,9 +26,8 @@ ipcRenderer.on('ticker-info', (event, data) => {
     }
     $listInner.appendChild(elem);
     if (arg.notify) {
-      console.log('about to notify:')
       let myNotification = new Notification(arg.symbol, {
-        body: `${arg.symbol} reached ${arg.last_trade_price}`
+        body: `${arg.symbol} reached ${arg.last_trade_price}. ${arg.dir} $${Math.abs(+(arg.notifPrice - arg.last_trade_price).toFixed(2))}`
       })
       myNotification.onclick = () => {
         ipcRenderer.send('remove-notif', arg.symbol)
