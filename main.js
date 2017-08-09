@@ -1,4 +1,5 @@
 const electron = require('electron')
+const async = require('async');
 // Module to control application life.
 const app = electron.app
 // Module to create native browser window.
@@ -116,6 +117,24 @@ ipcMain.on('remove-notif', (event, arg) => {
 const Robinhood = require('robinhood')(creds, () => {
   console.info('robinhood is ready')
   console.log('stocksToCheck:', stocksToCheck)
+  Robinhood.nonzero_positions(function(err, resp, body){
+    if (err){
+        console.erro(err);
+    }else{
+      // console.log("positions");
+      // console.log(body);
+
+      async.eachLimit(body.results, 1, (result, cb) => {
+        Robinhood.url(result.instrument, (err, resp, body) => {
+          console.log(result.average_buy_price, result.quantity, result.updated_at, body.symbol);
+          // console.log(body)
+          cb()
+        })
+      })
+    }
+  });
+
+
   updateStocks()
   setInterval(() => {
     updateStocks()
@@ -139,6 +158,7 @@ function sendUpdatedStockInfo(body) {
     if (!stocksToCheck[ticker]) return;
     let dir = stocksToCheck[ticker].direction
     let notifPrice = stocksToCheck[ticker].notifPrice
+    // console.log(result)
     let tickerInfo = {
       dir,
       last_extended_hours_trade_price: Number(result.last_extended_hours_trade_price),
@@ -150,7 +170,7 @@ function sendUpdatedStockInfo(body) {
     // console.log(lastTradePrice <= notifPrice, lastTradePrice, notifPrice)
     if (dir) {
       if ((dir === 'up' && lastTradePrice >= notifPrice) ||
-        (dir === 'down' && lastTradePrice <= notifPrice)) {
+        (dir  === 'down' && lastTradePrice <= notifPrice)) {
         tickerInfo.notify = true
         console.log('notifying:', ticker, dir)
       }

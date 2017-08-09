@@ -1,20 +1,17 @@
-// This file is required by the index.html file and will
-// be executed in the renderer process for that window.
-// All of the Node.js APIs are available in this process.
-
 const {ipcRenderer} = require('electron')
+const {render} = require('nunjucks')
 
 
 
 ipcRenderer.on('ticker-info', (event, data) => {
-  // console.log(data) // prints "pong"f
   let $list = document.querySelector('.list')
   let $listInner = document.querySelector('.list > div')
   $list.removeChild($listInner)
   $list.appendChild(document.createElement('div'))
   $listInner = document.querySelector('.list > div')
+  const items = []
 
-  data.forEach((arg) => {
+  data.sort((a, b) => a.symbol.localeCompare(b.symbol)).forEach((arg) => {
     //{
       //    body.results: [
       //        {
@@ -35,34 +32,39 @@ ipcRenderer.on('ticker-info', (event, data) => {
       //}
     let elem = document.createElement('div')
     elem.dataset.ticker = arg.symbol;
-    console.log(arg.result.last_trade_price, arg.result.previous_close)
-    let lastTradePrice = Number(arg.result.last_trade_price);
+
+    const now = new Date();
+    const openHours = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30);
+    const closeHours = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16);
+
+    let lastTradePrice = now > openHours && now < closeHours ? Number(arg.result.last_trade_price) : Number(arg.result.last_extended_hours_trade_price);
     let prevClose = Number(arg.result.previous_close);
     let dir, diff;
-    if (lastTradePrice > prevClose) {
-      dir = '+';
+    if (lastTradePrice >= prevClose) {
+      dir = '';
       diff = +(((lastTradePrice/prevClose)-1)*100).toFixed(2);
     } else {
       dir = '-';
       diff = +((1-(lastTradePrice/prevClose))*100).toFixed(2);
     }
-    let newContent = document.createTextNode(`${arg.symbol}     $${arg.last_trade_price}     ${dir}${diff}%`);
-    elem.appendChild(newContent);
-    elem.onclick = (e) => {
-      ipcRenderer.send('remove-ticker', e.target.dataset.ticker)
-      let elmt = e.target;
-      elmt.parentNode.removeChild(elmt);
-    }
-    $listInner.appendChild(elem);
-    if (arg.notify) {
-      let myNotification = new Notification(arg.symbol, {
-        body: `${arg.symbol} reached ${arg.last_trade_price}. ${arg.dir} $${Math.abs(+(arg.notifPrice - arg.last_trade_price).toFixed(2))}`
-      })
-      myNotification.onclick = () => {
-        ipcRenderer.send('remove-notif', arg.symbol)
-      }
-    }
-  })
+    items.push({
+      symbol: arg.symbol,
+      last_trade_price: lastTradePrice,
+      dir,
+      diff: `${dir} ${diff}`,
+      // last_extended_hours_trade_price: arg.last_extended_hours_trade_price,
+    })
+  });
+
+  const table = render('main.html', { items })
+  $listInner.innerHTML = table;
+
+  const $buttons = document.querySelectorAll('button');
+  for (let i = 0; i < $buttons.length; i++) {
+    $buttons[i].onclick = (e) => {
+      ipcRenderer.send('remove-ticker', e.target.dataset.ticker);
+    };
+  }
 })
 
 let stocksToCheck = []

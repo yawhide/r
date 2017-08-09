@@ -1,0 +1,37 @@
+<table>
+  <thead>
+    <tr>
+      <td>
+        Ticker
+      </td>
+      <td>
+        Price
+      </td>
+      <td>
+        Change
+      </td>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+      <tr>
+        <td>
+          {{ item.symbol}}
+        </td>
+        <td>
+          {{ item.last_trade_price}}
+        </td>
+        {% if item.dir === '-' %}
+          <td style="background-color:#EC7063;">
+        {% else %}
+          <td style="background-color:#82E0AA;">
+        {% endif %}
+          {{ item.diff }}%
+        </td>
+        <td>
+          <button data-ticker="{{ item.symbol }}">X</button>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
