@@ -71,6 +71,12 @@ let db = new JsonDB(tickerDbPath)
 let stocksToCheck = db.readSync()
 console.info('tickers to start watching:', stocksToCheck)
 
+function removeTicker(tick) {
+  console.log('remove-ticker', tick)  // prints "ping"
+  delete stocksToCheck[tick.toLowerCase()]
+  db.writeSync(stocksToCheck)
+}
+
 ipcMain.on('new-ticker', (event, arg) => {
   console.log('new-ticker:', arg)  // prints "ping"
   let ticker = arg.ticker.toLowerCase()
@@ -96,9 +102,7 @@ ipcMain.on('new-ticker', (event, arg) => {
 })
 
 ipcMain.on('remove-ticker', (event, arg) => {
-  console.log('remove-ticker', arg)  // prints "ping"
-  delete stocksToCheck[arg.toLowerCase()]
-  db.writeSync(stocksToCheck)
+  removeTicker(arg)
 })
 
 ipcMain.on('remove-notif', (event, arg) => {
@@ -153,6 +157,7 @@ function updateStocks() {
 function sendUpdatedStockInfo(body) {
   let info = []
   body.results.forEach((result) => {
+    if (!result) return
     let ticker = result.symbol.toLowerCase()
     let lastTradePrice = Number(result.last_trade_price)
     if (!stocksToCheck[ticker]) return;
